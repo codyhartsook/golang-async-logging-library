@@ -46,7 +46,9 @@ func (al Alog) Start() {
 	for {
 		select {
 		case msg = <-al.msgCh:
-			go al.write(msg, nil)
+			go func() {
+				al.write(msg, nil)
+			}()
 		default:
 			continue
 		}
@@ -66,7 +68,7 @@ func (al Alog) write(msg string, wg *sync.WaitGroup) {
 	// obtain lock then write formmatted msg to the io writter
 	al.m.Lock()
 	_, err := al.Write(formmatted)
-	al.m.Unlock()
+	defer al.m.Unlock()
 
 	if err != nil {
 		// write to error chan and avoid deadlock
