@@ -46,9 +46,7 @@ func (al Alog) Start() {
 	for {
 		select {
 		case msg = <-al.msgCh:
-			go func() {
-				al.write(msg, nil)
-			}()
+			go al.write(msg, nil)
 		default:
 			continue
 		}
@@ -62,20 +60,29 @@ func (al Alog) formatMessage(msg string) string {
 	return fmt.Sprintf("[%v] - %v", time.Now().Format("2006-01-02 15:04:05"), msg)
 }
 
+func (al Alog) reset() {
+	al.m.Lock()
+	defer al.m.Unlock()
+}
+
 func (al Alog) write(msg string, wg *sync.WaitGroup) {
 	formmatted := al.formatMessage(msg)
 
 	// obtain lock then write formmatted msg to the io writter
-	al.m.Lock()
-	_, err := al.Write(formmatted)
-	defer al.m.Unlock()
+	//defer al.reset()
+	func() {
+		al.m.Lock()
+		defer al.m.Unlock()
 
-	if err != nil {
-		// write to error chan and avoid deadlock
-		go func() {
-			al.errorCh <- err
-		}()
-	}
+		// do locked work
+		_, err := al.Write(formmatted)
+		if err != nil {
+			// write to error chan and avoid deadlock
+			go func() {
+				al.errorCh <- err
+			}()
+		}
+	}()
 }
 
 func (al Alog) shutdown() {
