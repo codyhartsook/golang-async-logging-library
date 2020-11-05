@@ -66,23 +66,17 @@ func (al Alog) reset() {
 }
 
 func (al Alog) write(msg string, wg *sync.WaitGroup) {
-	formmatted := al.formatMessage(msg)
 
-	// obtain lock then write formmatted msg to the io writter
-	//defer al.reset()
-	func() {
-		al.m.Lock()
-		defer al.m.Unlock()
+	al.m.Lock()
+	defer al.m.Unlock()
+	_, err := al.dest.Write([]byte(al.formatMessage(msg)))
 
-		// do locked work
-		_, err := al.Write(formmatted)
-		if err != nil {
-			// write to error chan and avoid deadlock
-			go func() {
-				al.errorCh <- err
-			}()
-		}
-	}()
+	// write to error chan if necesary
+	if err != nil {
+		go func(err error) {
+			al.errorCh <- err
+		}(err)
+	}
 }
 
 func (al Alog) shutdown() {
